@@ -12,6 +12,7 @@ from PIL import Image
 import uuid
 from io import BytesIO
 from flask_basicauth import BasicAuth
+from datetime import datetime
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
@@ -28,6 +29,25 @@ if not username or not password:
 app.config['BASIC_AUTH_USERNAME'] = username
 app.config['BASIC_AUTH_PASSWORD'] = password
 app.config['BASIC_AUTH_FORCE'] = True
+
+# Logging setup
+LOG_FILE = 'access.log'
+
+def log_access():
+    """Log successful access attempts"""
+    ip = request.remote_addr
+    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    user_agent = request.headers.get('User-Agent', 'Unknown')
+    
+    log_entry = f"{timestamp} - {ip} - {user_agent}\n"
+    
+    with open(LOG_FILE, 'a') as f:
+        f.write(log_entry)
+
+@app.before_request
+def before_request():
+    if basic_auth.authenticate():
+        log_access()
 
 # Helper functions
 def process_row(row, format_type):
