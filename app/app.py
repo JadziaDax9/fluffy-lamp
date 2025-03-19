@@ -19,11 +19,15 @@ app.config['UPLOAD_FOLDER'] = 'tmp'
 basic_auth = BasicAuth(app)
 
 
+username = os.environ.get('BASIC_AUTH_USERNAME')
+password = os.environ.get('BASIC_AUTH_PASSWORD')
 
-app.config['BASIC_AUTH_USERNAME'] = os.getenv('ADMIN_USER', 'admin')
-app.config['BASIC_AUTH_PASSWORD'] = os.getenv('ADMIN_PASS', 'secret')
-app.config['BASIC_AUTH_FORCE'] = True  # Protect all routes
+if not username or not password:
+    raise ValueError("BASIC_AUTH_USERNAME and BASIC_AUTH_PASSWORD must be set!")
 
+app.config['BASIC_AUTH_USERNAME'] = username
+app.config['BASIC_AUTH_PASSWORD'] = password
+app.config['BASIC_AUTH_FORCE'] = True
 
 # Helper functions
 def process_row(row, format_type):
