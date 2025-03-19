@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    ports:
+      - "5000:5000"
+    # environment:
+    #   # - FLASK_ENV=development
+    #   # - SECRET_KEY=your-secret-key-here
+    volumes:
+      - ./app:/app
+      - ./templates:/app/templates
+      - ./tmp:/app/tmp

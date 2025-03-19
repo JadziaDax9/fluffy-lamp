@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        .progress-container {
+            width: 100%;
+            background-color: #f3f3f3;
+            display: none;
+            margin: 20px 0;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background-color: #4CAF50;
+            animation: progress 2s infinite linear;
+            transform-origin: 0% 50%;
+        }
+        
+        @keyframes progress {
+            0% { transform: scaleX(0); }
+            50% { transform: scaleX(0.5); }
+            100% { transform: scaleX(0); }
+        }
+        </style>
+    <title>Review Data</title>
+    <style>
+        table { border-collapse: collapse; width: 100%; }
+        td, th { border: 1px solid #ddd; padding: 8px; }
+        tr:nth-child(even) { background-color: #f2f2f2; }
+    </style>
+</head>
+<body>
+    <h1>Review CSV Data</h1>
+    <form id="dataForm" onsubmit="return submitForm(event)">
+        <table>
+            <thead>
+                <tr>
+                    {% for key in rows[0].keys() %}
+                        <th>{{ key }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in rows %}
+                    <tr>
+                        {% for key, value in row.items() %}
+                            <td><input type="text" name="{{ key }}[]" value="{{ value }}"></td>
+                        {% endfor %}
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <button type="submit">Generate Labels</button>
+    </form>
+    <div class="progress-container" id="progressContainer">
+        <div class="progress-bar"></div>
+        <p>Generating labels... This may take a moment</p>
+    </div>
+
+    <script>
+        async function submitForm(e) {
+            e.preventDefault();
+            const progressContainer = document.getElementById('progressContainer');
+            const submitButton = document.querySelector('button[type="submit"]');
+            
+            // Show progress and disable button IMMEDIATELY
+            progressContainer.style.display = 'block';
+            submitButton.disabled = true;
+    
+            const formData = [];
+            const inputs = document.querySelectorAll('input[name]');
+            const rowCount = {{ rows|length }};
+            const colCount = inputs.length / rowCount;
+    
+            // Process form data AFTER showing progress
+            for (let i = 0; i < rowCount; i++) {
+                const row = {};
+                for (let j = 0; j < colCount; j++) {
+                    const input = inputs[i * colCount + j];
+                    row[input.name.replace('[]', '')] = input.value;
+                }
+                formData.push(row);
+            }
+    
+            try {
+                const response = await fetch(`/generate/{{ file_id }}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData)
+                });
+    
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'labels.pdf';
+                    a.click();
+                } else {
+                    const error = await response.json();
+                    throw error.error;
+                }
+            } catch (error) {
+                alert('Error: ' + error);
+            } finally {
+                // Hide progress and re-enable button
+                progressContainer.style.display = 'none';
+                submitButton.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>

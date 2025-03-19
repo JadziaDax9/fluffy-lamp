@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Shipping Labels</title>
+    <style>
+        .drop-zone {
+            border: 2px dashed #ccc;
+            padding: 20px;
+            text-align: center;
+        }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <h1>Generate Shipping Labels</h1>
+    
+    <form id="uploadForm">
+        <div>
+            <label>Production API Key: <input type="text" name="prod_key" required></label>
+        </div>
+        <div>
+            <label>Development API Key: <input type="text" name="dev_key" required></label>
+        </div>
+        <div>
+            <label>Environment:
+                <select name="environment">
+                    <option value="development">Development</option>
+                    <option value="production">Production</option>
+                </select>
+            </label>
+        </div>
+
+        <div class="drop-zone" id="dropZone">
+            Drag & Drop CSV File Here or Click to Upload
+        </div>
+        <input type="file" id="fileInput" class="hidden">
+    </form>
+
+    <script>
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const form = document.getElementById('uploadForm');
+
+        dropZone.addEventListener('click', () => fileInput.click());
+        
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.style.backgroundColor = '#f0f0f0';
+        });
+
+        dropZone.addEventListener('drop', async (e) => {
+            e.preventDefault();
+            dropZone.style.backgroundColor = '';
+            
+            const file = e.dataTransfer.files[0];
+            if (file) handleFile(file);
+        });
+
+        fileInput.addEventListener('change', () => {
+            if (fileInput.files.length) handleFile(fileInput.files[0]);
+        });
+
+        async function handleFile(file) {
+            const formData = new FormData(form);
+            formData.append('file', file);
+
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                if (data.error) throw data.error;
+                
+                window.location = `/review/${data.file_id}`;
+            } catch (error) {
+                alert('Error: ' + (error.message || error));
+            }
+        }
+    </script>
+</body>
+</html>
