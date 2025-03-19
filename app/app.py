@@ -11,10 +11,19 @@ import easypost
 from PIL import Image
 import uuid
 from io import BytesIO
+from flask_basicauth import BasicAuth
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
 app.config['UPLOAD_FOLDER'] = 'tmp'
+basic_auth = BasicAuth(app)
+
+
+
+app.config['BASIC_AUTH_USERNAME'] = os.getenv('ADMIN_USER', 'admin')
+app.config['BASIC_AUTH_PASSWORD'] = os.getenv('ADMIN_PASS', 'secret')
+app.config['BASIC_AUTH_FORCE'] = True  # Protect all routes
+
 
 # Helper functions
 def process_row(row, format_type):
