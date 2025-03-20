@@ -3,18 +3,27 @@
 <head>
     <title>Shipping Labels</title>
     <style>
-        .drop-zone {
-            border: 2px dashed #ccc;
-            padding: 20px;
-            text-align: center;
-        }
+        .drop-zone { border: 2px dashed #ccc; padding: 20px; text-align: center; }
         .hidden { display: none; }
+        .return-address { margin: 20px 0; padding: 15px; border: 1px solid #ddd; }
+        .return-address input { margin: 5px; width: 300px; }
+        .return-address input[type="text"] { padding: 5px; }
     </style>
 </head>
 <body>
     <h1>Generate Shipping Labels</h1>
     
     <form id="uploadForm">
+        <div class="return-address">
+            <h3>Return Address</h3>
+            <input type="text" name="return_name" placeholder="Name" required><br>
+            <input type="text" name="return_street1" placeholder="Street Address 1" required><br>
+            <input type="text" name="return_street2" placeholder="Street Address 2"><br>
+            <input type="text" name="return_city" placeholder="City" required>
+            <input type="text" name="return_state" placeholder="State" required style="width: 50px">
+            <input type="text" name="return_zip" placeholder="ZIP Code" required>
+        </div>
+
         <div>
             <label>Production API Key: <input type="text" name="prod_key" required></label>
         </div>
@@ -51,7 +60,6 @@
         dropZone.addEventListener('drop', async (e) => {
             e.preventDefault();
             dropZone.style.backgroundColor = '';
-            
             const file = e.dataTransfer.files[0];
             if (file) handleFile(file);
         });

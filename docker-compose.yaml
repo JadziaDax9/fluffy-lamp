@@ -5,7 +5,11 @@ services:
     build: .
     ports:
       - "5000:5000"
+    environment:
+      - BASIC_AUTH_USERNAME=test
+      - BASIC_AUTH_PASSWORD=test
     volumes:
       - ./app:/app
       - ./templates:/app/templates
       - ./tmp:/app/tmp
+      - ./logs:/app/logs
