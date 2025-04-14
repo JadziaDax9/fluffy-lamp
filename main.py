@@ -159,7 +159,7 @@ async def run_monitor():
                 current_proxy_index += 1
             # elif not remaining_ids: break # No need, while condition handles it
 
-            await asyncio.sleep(3.0) # Delay between batches
+            await asyncio.sleep(2.0) # Delay between batches
 
     logging.info("--- Fetching phase complete ---")
     logging.info(f"Successfully fetched data for {len(successful_fetch_ids)} IDs.")
