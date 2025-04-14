@@ -1,0 +1,90 @@
+name: Update TCG Market Data
+
+# Controls when the workflow will run
+on:
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+  # # Runs on a schedule (example: every day at 6:00 AM UTC)
+  # # Use https://crontab.guru to customize
+  # schedule:
+  #   - cron: '0 6 * * *'
+
+jobs:
+  run_and_commit:
+    runs-on: ubuntu-latest # Use the latest Ubuntu runner
+
+    steps:
+      # 1. Checkout repository code so the runner can access it
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Set up Python environment
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12' # Specify your Python version
+          cache: 'pip' # Cache pip dependencies to speed up future runs
+
+      # 3. Install dependencies from requirements.txt
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      # 4. Create .env file from GitHub Secrets
+      # IMPORTANT: Add ALL environment variables your main.py needs here
+      - name: Create .env file
+        run: |
+          echo "NEXT_PUBLIC_SUPABASE_URL=${{ secrets.SUPABASE_URL }}" >> .env
+          echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}" >> .env
+          # Add proxy credentials ONLY if they exist as secrets (optional based on your config/usage)
+          if [ -n "${{ secrets.PROXY_USERNAME }}" ]; then
+            echo "PROXY_USERNAME=${{ secrets.PROXY_USERNAME }}" >> .env
+          fi
+          if [ -n "${{ secrets.PROXY_PASSWORD }}" ]; then
+            echo "PROXY_PASSWORD=${{ secrets.PROXY_PASSWORD }}" >> .env
+          fi
+          echo ".env file created." # Log confirmation
+
+      # 5. Ensure proxy list exists (if needed and committed to repo)
+      # If nordvpnserver.json is in your repo, this step is not strictly needed
+      # If you need to DOWNLOAD it, add a 'run: curl ...' or 'wget ...' step here
+      - name: Check for proxy file (if applicable)
+        run: |
+          if [ -f "nordvpnserver.json" ]; then
+            echo "nordvpnserver.json found."
+          else
+            echo "WARNING: nordvpnserver.json not found (if needed by script)."
+            # Decide if you want to 'exit 1' here if the file is essential
+          fi
+
+      # 6. Run the main Python script to fetch data and update the DB
+      - name: Run data update script
+        run: python main.py
+
+      # 7. Commit the updated database file back to the repo
+      - name: Commit and push database changes
+        run: |
+          git config --global user.name 'github-actions[bot]' # Set commit author identity
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+
+          # ---- IMPORTANT: Verify this filename matches config.SQLITE_DB_NAME ----
+          DB_FILE="market_data.db"
+
+          # Stage the database file (only if it exists)
+          if [ ! -f "$DB_FILE" ]; then
+             echo "Database file $DB_FILE not found. Nothing to commit."
+             exit 0 # Exit successfully if DB file wasn't created/found
+          fi
+          git add "$DB_FILE"
+
+          # Check if there are changes staged to commit
+          # The 'git diff --staged --quiet' exits with 1 if there ARE changes, 0 otherwise
+          # We only commit if it exits with 1
+          if ! git diff --staged --quiet; then
+            echo "Database file changed. Committing updates..."
+            git commit -m "Update market data DB [skip ci]" # Add [skip ci] to prevent triggering this workflow again
+            git push
+            echo "Changes pushed."
+          else
+            echo "No changes detected in $DB_FILE. Nothing to commit."
+          fi
