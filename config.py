@@ -14,8 +14,8 @@ SUPABASE_COLUMN_SET: str = "set"
 # --- Target Sets ---
 # Define the specific sets you want to monitor. Can be empty list [] to monitor all (NOT RECOMMENDED FOR SCALE)
 TARGET_SETS: list[str] = [
-    "tdm",
-    "tdc",
+    "dft",
+    "dfc",
     # "Modern Horizons 3", # Add sets you care about
     # "Bloomburrow"
 ]
@@ -26,8 +26,8 @@ TCGPLAYER_API_URL_TEMPLATE: str = "https://mpapi.tcgplayer.com/v2/product/{}/lat
 TCGPLAYER_PAGE_LIMIT: int = 25 # How many sales per API page request
 
 # --- Fetching Control ---
-MAX_CONCURRENT_REQUESTS: int = 3 # Tune based on performance and proxy stability
-MAX_RETRIES_PER_ID: int = 2      # Overall attempts for an ID across different proxies/errors
+MAX_CONCURRENT_REQUESTS: int = 50 # Tune based on performance and proxy stability
+MAX_RETRIES_PER_ID: int = 1      # Overall attempts for an ID across different proxies/errors
 FETCH_TIMEOUT_SECONDS: int = 30 # Timeout for a single HTTP request
 
 # --- Proxy Configuration ---
@@ -56,3 +56,4 @@ ANALYSIS_PRICE_MEDIAN_SPIKE_MULTIPLIER: float = 1.4
 
 # Add other necessary constants
 PROCESSING_CHUNK_SIZE = 100
+PROXY_FILE = "datacenter_proxy.csv"

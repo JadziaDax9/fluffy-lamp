@@ -137,7 +137,7 @@ async def run_monitor():
         db_conn = None # Ensure db_conn is None if check fails
 
     # 3. Proxy Test (First Available Proxy Only)
-    loaded_proxies = proxies.load_proxies() # Load proxies early for test
+    loaded_proxies = proxies.load_proxies_csv() # Load proxies early for test
     if config.USE_PROXIES and loaded_proxies:
         first_proxy_config = loaded_proxies[0]
         proxy_url_test = fetcher.format_proxy_url(first_proxy_config)
