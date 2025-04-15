@@ -55,3 +55,4 @@ ANALYSIS_PRICE_SPIKE_MULTIPLIER: float = 1.5 # e.g., 50% price increase over ave
 ANALYSIS_PRICE_MEDIAN_SPIKE_MULTIPLIER: float = 1.4
 
 # Add other necessary constants
+PROCESSING_CHUNK_SIZE = 100
