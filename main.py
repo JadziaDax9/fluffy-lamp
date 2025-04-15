@@ -278,83 +278,115 @@ async def run_monitor():
          logging.info("No storage tasks were scheduled (either no successful fetches or fetched data was empty).")
 
 
-    # --- Analysis Phase ---
+     # --- Analysis Phase ---
     logging.info(f"--- Starting Analysis Phase ---")
 
-    # 1. Find the latest date with sales data stored in the database
-    latest_data_date = await analysis.find_latest_sales_date(db_conn)
+    # 1. Find the date range covered by NEWLY INSERTED data (if possible)
+    # We need the min/max date from the data inserted in THIS RUN.
+    # Getting this accurately after the fact without complex tracking is tricky.
+    # ALTERNATIVE: Find overall Min/Max dates in DB and process range.
+    async def find_sales_date_range(conn: aiosqlite.Connection) -> Tuple[Optional[date], Optional[date]]:
+        query = f"SELECT MIN(date(order_date)), MAX(date(order_date)) FROM {config.DB_TABLE_SALES}"
+        try:
+            async with conn.execute(query) as cursor:
+                result = await cursor.fetchone()
+                if result and result[0] and result[1]:
+                    min_d = date.fromisoformat(result[0])
+                    max_d = date.fromisoformat(result[1])
+                    logging.debug(f"Sales data date range found in DB: {min_d} to {max_d}")
+                    return min_d, max_d
+                else:
+                    logging.warning("No date range found in sales table.")
+                    return None, None
+        except Exception as e:
+            logging.error(f"Error finding sales date range: {e}")
+            return None, None
 
-    if latest_data_date:
-        logging.info(f"Latest sales data found in DB up to: {latest_data_date}")
+    min_sales_date, max_sales_date = await find_sales_date_range(db_conn)
 
-        # Analyze the most recent date found. Could expand to analyze multiple days.
-        analysis_date = latest_data_date
-        all_insights = await analysis.run_analysis_for_date(db_conn, analysis_date)
+    if min_sales_date and max_sales_date:
+        logging.info(f"Processing analysis for date range: {min_sales_date} to {max_sales_date}")
 
+        # Determine dates to calculate metrics for.
+        # Strategy: Ensure metrics are calculated for all days from the earliest
+        # relevant baseline date up to the latest sales date found.
+        analysis_latest_date = max_sales_date
+        analysis_earliest_needed = min(min_sales_date, analysis_latest_date - timedelta(days=config.ANALYSIS_BASELINE_DAYS + 2)) # Go back baseline+buffer days
+
+        current_calc_date = analysis_earliest_needed
+        logging.info(f"Ensuring daily metrics are calculated from {analysis_earliest_needed} to {analysis_latest_date}...")
+
+        # Loop to calculate metrics for any missing days in the relevant range
+        while current_calc_date <= analysis_latest_date:
+            # Optional check: Only calculate if metrics for this date don't exist yet?
+            # This adds DB query overhead but prevents recalculation.
+            # needs_calc = await check_if_metrics_exist(db_conn, current_calc_date) # Need to implement check_if_metrics_exist
+            # if needs_calc:
+            #    await analysis.calculate_daily_metrics(db_conn, current_calc_date)
+
+            # Simpler: Always recalculate/update for the necessary range
+            await analysis.calculate_daily_metrics(db_conn, current_calc_date)
+            current_calc_date += timedelta(days=1)
+
+        logging.info("Finished calculating/updating daily metrics for the relevant date range.")
+
+        # Now run the insight generation using the LATEST date for comparison
+        logging.info(f"Generating insights comparing {analysis_latest_date} to previous day and baseline...")
+        all_insights = await analysis.run_analysis_for_date(db_conn, analysis_latest_date) # Uses the calculation done above
 
         # --- Reporting Phase ---
         if all_insights:
-            logging.warning(f"--- Generated {len(all_insights)} Insights for {analysis_date} ---")
+            logging.warning(f"--- Generated {len(all_insights)} Insights for {analysis_latest_date} ---") # Report for the latest date
 
             # Helper function for safe formatting of percentages
             def format_pct(value):
-                if isinstance(value, (int, float)) and value != float('inf'):
-                    return f"{value:+7.1f}%" # Format number
-                elif value == 'inf':
-                    return " (+inf%)" # Indicate infinite change
-                else:
-                    return " ( N/A )" # Handle None or other non-numeric
+                # ... (same formatting helper as before) ...
+                if isinstance(value, (int, float)) and value != float('inf'): return f"{value:+7.1f}%"
+                elif value == 'inf': return " (+inf%)"
+                else: return " ( N/A )"
 
-            # Sort by different metrics to find top movers
-            # Volume % Change Movers (High volume changes, min volume 3)
+            # Sort by different metrics (unchanged from previous correction)
             top_volume_movers = sorted(
                 [i for i in all_insights if isinstance(i.get('vol_change_pct'), (int, float)) and i.get('volume', 0) >= 3],
-                key=lambda x: x.get('vol_change_pct', -float('inf')), # Sort Numerically, Nones last
-                reverse=True
-            )[:15] # Get top 15
-
-            # Avg Price % Change Movers (Min price $1)
+                key=lambda x: x.get('vol_change_pct', -float('inf')), reverse=True
+            )[:15]
             top_price_movers = sorted(
                 [i for i in all_insights if isinstance(i.get('avg_p_change_pct'), (int, float)) and i.get('avg_price', 0) >= 1.00],
-                key=lambda x: x.get('avg_p_change_pct', -float('inf')), # Sort Numerically
-                reverse=True
-            )[:15] # Get top 15
-
-            # Absolute Volume Movers (Highest volume today, min 5 sales)
+                key=lambda x: x.get('avg_p_change_pct', -float('inf')), reverse=True
+            )[:15]
             top_abs_volume = sorted(
                 [i for i in all_insights if i.get('volume', 0) >= 5],
-                key=lambda x: x.get('volume', 0),
-                reverse=True
+                key=lambda x: x.get('volume', 0), reverse=True
             )[:15]
 
             logging.warning("--- Top Volume Movers (% Change vs Prev Day | Vol >= 3) ---")
             if top_volume_movers:
                 for item in top_volume_movers:
-                     vol_pct_str = format_pct(item.get('vol_change_pct')) # Use helper
+                     vol_pct_str = format_pct(item.get('vol_change_pct'))
                      logging.warning(f"  ID: {item['tcgplayer_id']:<10} Vol: {item['volume']:<4} {vol_pct_str} AvgP: ${item['avg_price']:.2f}")
             else:
-                 logging.warning("  (No cards met Volume % Change criteria)") # Clarify message
+                 logging.warning("  (No cards met Volume % Change criteria for latest day)")
 
             logging.warning("--- Top Avg Price Movers (% Change vs Prev Day | AvgP >= $1.00) ---")
             if top_price_movers:
                 for item in top_price_movers:
-                     avg_p_pct_str = format_pct(item.get('avg_p_change_pct')) # Use helper
+                     avg_p_pct_str = format_pct(item.get('avg_p_change_pct'))
                      logging.warning(f"  ID: {item['tcgplayer_id']:<10} AvgP: ${item['avg_price']:<7.2f} {avg_p_pct_str} Vol: {item['volume']}")
             else:
-                logging.warning("  (No cards met Avg Price % Change criteria)") # Clarify message
+                logging.warning("  (No cards met Avg Price % Change criteria for latest day)")
 
-            logging.warning("--- Highest Volume Cards (Vol >= 5) ---")
+            logging.warning("--- Highest Volume Cards (Latest Day | Vol >= 5) ---")
             if top_abs_volume:
                  for item in top_abs_volume:
-                      # --- CORRECTED LINE ---
-                      # Apply safe formatting to the percentage change part
-                      change_str = format_pct(item.get('avg_p_change_pct'))
+                      change_str = format_pct(item.get('avg_p_change_pct')) # Use correct helper
                       logging.warning(f"  ID: {item['tcgplayer_id']:<10} Vol: {item['volume']:<4} AvgP: ${item['avg_price']:.2f} Change:{change_str}")
             else:
-                logging.warning("  (No cards met Highest Volume criteria)") # Clarify message
-
+                logging.warning("  (No cards met Highest Volume criteria for latest day)")
         else:
-            logging.info(f"Analysis for {analysis_date} did not generate significant insights based on current criteria.")
+             logging.info(f"Analysis for {analysis_latest_date} did not generate insights (potentially no comparable data).")
+
+    else:
+        logging.warning("No sales data found in the database to perform analysis.")
 
 
     # --- Cleanup ---
@@ -362,6 +394,7 @@ async def run_monitor():
     logging.info("Database connection closed.")
     end_time_main = datetime.now()
     logging.info(f"--- TCG Market Monitor Finished | Total Time: {end_time_main - start_time_main} ---")
+
 
 if __name__ == "__main__":
     asyncio.run(run_monitor())
