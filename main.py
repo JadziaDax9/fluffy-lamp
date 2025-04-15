@@ -75,9 +75,9 @@ async def get_target_ids(supabase: Client) -> List[str]:
                     break
                 else:
                     current_offset += ID_FETCH_PAGE_SIZE
-                    await asyncio.sleep(0.1) # Small delay between page fetches
+                    await asyncio.sleep(1.1) # Small delay between page fetches
             else:
-                 # Got a valid response structure, but data array is empty
+                 # Got a valid response structure, but data array is empty``
                  logging.info(f"Received empty data array at offset {current_offset}. Ending fetch.")
                  break # No more data
 
@@ -239,7 +239,7 @@ async def run_monitor():
                      logging.debug(f"Proxy {proxy_log_msg} was stable this batch. Continuing.")
 
                 # --- Add delay between batches ---
-                await asyncio.sleep(0.1) # 100 millisecond delay
+                await asyncio.sleep(0.5) # 100 millisecond delay
 
 
         logging.info("--- Fetching phase complete ---")
@@ -291,21 +291,31 @@ async def run_monitor():
         analysis_date = latest_data_date
         all_insights = await analysis.run_analysis_for_date(db_conn, analysis_date)
 
+
         # --- Reporting Phase ---
         if all_insights:
             logging.warning(f"--- Generated {len(all_insights)} Insights for {analysis_date} ---")
 
+            # Helper function for safe formatting of percentages
+            def format_pct(value):
+                if isinstance(value, (int, float)) and value != float('inf'):
+                    return f"{value:+7.1f}%" # Format number
+                elif value == 'inf':
+                    return " (+inf%)" # Indicate infinite change
+                else:
+                    return " ( N/A )" # Handle None or other non-numeric
+
             # Sort by different metrics to find top movers
-            # Volume % Change Movers (High volume changes, ignore infinite, min volume 3)
+            # Volume % Change Movers (High volume changes, min volume 3)
             top_volume_movers = sorted(
                 [i for i in all_insights if isinstance(i.get('vol_change_pct'), (int, float)) and i.get('volume', 0) >= 3],
                 key=lambda x: x.get('vol_change_pct', -float('inf')), # Sort Numerically, Nones last
                 reverse=True
             )[:15] # Get top 15
 
-            # Avg Price % Change Movers (Min price $1, ignore infinite)
+            # Avg Price % Change Movers (Min price $1)
             top_price_movers = sorted(
-                [i for i in all_insights if isinstance(i.get('avg_p_change_pct'), (int, float)) and i.get('avg_price', 0) >= 1.0],
+                [i for i in all_insights if isinstance(i.get('avg_p_change_pct'), (int, float)) and i.get('avg_price', 0) >= 1.00],
                 key=lambda x: x.get('avg_p_change_pct', -float('inf')), # Sort Numerically
                 reverse=True
             )[:15] # Get top 15
@@ -320,29 +330,31 @@ async def run_monitor():
             logging.warning("--- Top Volume Movers (% Change vs Prev Day | Vol >= 3) ---")
             if top_volume_movers:
                 for item in top_volume_movers:
-                     logging.warning(f"  ID: {item['tcgplayer_id']:<10} Vol: {item['volume']:<4} ({item['vol_change_pct']:+7.1f}%) AvgP: ${item['avg_price']:.2f}")
+                     vol_pct_str = format_pct(item.get('vol_change_pct')) # Use helper
+                     logging.warning(f"  ID: {item['tcgplayer_id']:<10} Vol: {item['volume']:<4} {vol_pct_str} AvgP: ${item['avg_price']:.2f}")
             else:
-                 logging.warning("  (No significant volume movers found)")
+                 logging.warning("  (No cards met Volume % Change criteria)") # Clarify message
 
             logging.warning("--- Top Avg Price Movers (% Change vs Prev Day | AvgP >= $1.00) ---")
             if top_price_movers:
                 for item in top_price_movers:
-                     logging.warning(f"  ID: {item['tcgplayer_id']:<10} AvgP: ${item['avg_price']:<7.2f} ({item['avg_p_change_pct']:+7.1f}%) Vol: {item['volume']}")
+                     avg_p_pct_str = format_pct(item.get('avg_p_change_pct')) # Use helper
+                     logging.warning(f"  ID: {item['tcgplayer_id']:<10} AvgP: ${item['avg_price']:<7.2f} {avg_p_pct_str} Vol: {item['volume']}")
             else:
-                logging.warning("  (No significant price movers found)")
+                logging.warning("  (No cards met Avg Price % Change criteria)") # Clarify message
 
             logging.warning("--- Highest Volume Cards (Vol >= 5) ---")
             if top_abs_volume:
                  for item in top_abs_volume:
-                      logging.warning(f"  ID: {item['tcgplayer_id']:<10} Vol: {item['volume']:<4} AvgP: ${item['avg_price']:.2f} Change: {item.get('avg_p_change_pct', 'N/A'):+7.1f}%")
+                      # --- CORRECTED LINE ---
+                      # Apply safe formatting to the percentage change part
+                      change_str = format_pct(item.get('avg_p_change_pct'))
+                      logging.warning(f"  ID: {item['tcgplayer_id']:<10} Vol: {item['volume']:<4} AvgP: ${item['avg_price']:.2f} Change:{change_str}")
             else:
-                logging.warning("  (No cards met minimum volume criteria)")
+                logging.warning("  (No cards met Highest Volume criteria)") # Clarify message
 
         else:
             logging.info(f"Analysis for {analysis_date} did not generate significant insights based on current criteria.")
-
-    else:
-        logging.warning("No sales data found in the database to perform analysis.")
 
 
     # --- Cleanup ---
