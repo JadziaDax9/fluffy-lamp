@@ -42,10 +42,7 @@ async def get_target_ids(supabase: Client) -> List[str]:
         while True:
             logging.debug(f"Fetching ID page starting at offset {current_offset}...")
             # Base query builder for each page
-            query_builder = supabase.table(config.SUPABASE_TABLE_CARDS)\
-                                    .select(select_query, count='exact') # Request count for better debugging
-                                    .limit(ID_FETCH_PAGE_SIZE)\
-                                    .offset(current_offset)
+            query_builder = supabase.table(config.SUPABASE_TABLE_CARDS).select(select_query, count='exact').limit(ID_FETCH_PAGE_SIZE).offset(current_offset)
 
             # Apply set filter if specified
             if config.TARGET_SETS:

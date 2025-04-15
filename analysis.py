@@ -104,7 +104,7 @@ async def find_latest_sales_date(conn: aiosqlite.Connection) -> Optional[date]:
 
 
 # --- Main Analysis and Insight Generation ---
-async def run_analysis_for_date(conn: aiosqlite.Connection, analysis_date: date) -> Optional[List[Dict[str, Any]]]:
+async def run_analysis_for_date(conn: aiosqlite.Connection, analysis_date: date) -> Optional[List[Dict[str, any]]]:
     """
     Runs metric calculation and generates insights (like % changes) for a specific date.
     Returns a list of insight dictionaries or None if analysis can't proceed.
