@@ -14,8 +14,8 @@ SUPABASE_COLUMN_SET: str = "set"
 # --- Target Sets ---
 # Define the specific sets you want to monitor. Can be empty list [] to monitor all (NOT RECOMMENDED FOR SCALE)
 TARGET_SETS: list[str] = [
-    "dft",
-    "dfc",
+    "tdm",
+    "tdc",
     # "Modern Horizons 3", # Add sets you care about
     # "Bloomburrow"
 ]
