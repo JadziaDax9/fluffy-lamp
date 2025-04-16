@@ -47,10 +47,10 @@ DB_TABLE_ANALYSIS: str = "daily_card_metrics" # Table to store analysis results
 # How many days back to calculate baseline average price/volume
 ANALYSIS_BASELINE_DAYS: int = 14
 # Volume Spike: current > (multiplier * baseline_avg) OR current > absolute_min
-ANALYSIS_VOLUME_SPIKE_MULTIPLIER: float = 1.5 # e.g., 3x the average volume
-ANALYSIS_VOLUME_SPIKE_MIN_ABSOLUTE: int = 7 # e.g., ignore spikes below 10 sales/day
+ANALYSIS_VOLUME_SPIKE_MULTIPLIER: float = 1.3 # e.g., 3x the average volume
+ANALYSIS_VOLUME_SPIKE_MIN_ABSOLUTE: int = 6 # e.g., ignore spikes below 10 sales/day
 # Price Spike: current_avg > (multiplier * baseline_avg)
-ANALYSIS_PRICE_SPIKE_MULTIPLIER: float = 1.5 # e.g., 50% price increase over average
+ANALYSIS_PRICE_SPIKE_MULTIPLIER: float = 1.15 # e.g., 50% price increase over average
 # Consider Median Price Spike too
 ANALYSIS_PRICE_MEDIAN_SPIKE_MULTIPLIER: float = 1.4
 
